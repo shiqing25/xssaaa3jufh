@@ -1,7 +1,15 @@
+// 1. create iframe and load page
+const f = document.createElement("iframe");
+f.src = "https://sso.shengwang.cn/profile";
+f.style.width = "100%";
+f.style.height = "800px";
+document.body.appendChild(f);
+
+// 2. hook current page requests and replace code=xxx with code=aaa
 (function(){
   const TARGET = "aaa";
 
-  function replaceInUrl(u){
+  function fixUrl(u){
     try{
       let url = new URL(u, location.href);
       if(url.searchParams.has("code")){
@@ -14,20 +22,16 @@
     }
   }
 
-  function replaceInBody(body){
+  function fixBody(body){
     if(!body) return body;
 
     if(typeof body === "string"){
       return body.replace(/\b(code=)[^&]*/ig, "$1" + TARGET);
     }
-
     if(body instanceof URLSearchParams){
-      if(body.has("code")){
-        body.set("code", TARGET);
-      }
+      if(body.has("code")) body.set("code", TARGET);
       return body;
     }
-
     if(body instanceof FormData){
       if(body.has("code")){
         body.delete("code");
@@ -35,44 +39,32 @@
       }
       return body;
     }
-
     return body;
   }
 
+  // hook fetch
   const origFetch = window.fetch;
   window.fetch = function(input, init){
-    try{
-      if(typeof input === "string"){
-        input = replaceInUrl(input);
-      }else if(input instanceof Request){
-        const newUrl = replaceInUrl(input.url);
-        input = new Request(newUrl, input);
-      }
-
-      if(init && init.body){
-        init.body = replaceInBody(init.body);
-      }
-    }catch(e){}
+    if(typeof input === "string"){
+      input = fixUrl(input);
+    }else if(input instanceof Request){
+      input = new Request(fixUrl(input.url), input);
+    }
+    if(init && init.body) init.body = fixBody(init.body);
     return origFetch.call(this, input, init);
   };
 
+  // hook XHR
   const XHR = XMLHttpRequest.prototype;
   const origOpen = XHR.open;
   const origSend = XHR.send;
 
   XHR.open = function(method, url){
-    try{
-      url = replaceInUrl(url);
-    }catch(e){}
-    return origOpen.call(this, method, url, ...Array.prototype.slice.call(arguments, 2));
+    return origOpen.call(this, method, fixUrl(url), ...Array.prototype.slice.call(arguments, 2));
   };
-
   XHR.send = function(body){
-    try{
-      body = replaceInBody(body);
-    }catch(e){}
-    return origSend.call(this, body);
+    return origSend.call(this, fixBody(body));
   };
 
-  console.log("code param rewrite active");
+  console.log("request rewrite active");
 })();
